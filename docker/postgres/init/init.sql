@@ -1,0 +1,2 @@
+CREATE DATABASE lms_user;
+CREATE DATABASE lms_leave;

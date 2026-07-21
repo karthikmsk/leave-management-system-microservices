@@ -5,7 +5,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import com.leave_service.dto.LeaveTypeRequestDto;
 import com.leave_service.dto.LeaveTypeResponseDto;
-import com.leave_service.exception.LeaveNotFoundException;
 import com.leave_service.exception.LeaveTypeNotFoundException;
 import com.leave_service.mapper.LeaveTypeMapper;
 import com.leave_service.model.LeaveType;
@@ -30,30 +29,27 @@ public class LeaveTypeService {
 
     public LeaveTypeResponseDto getLeaveTypeById(Long id){
         return mapToResponse(leaveTypeRepository.findById(id)
-        .orElseThrow(() -> new LeaveNotFoundException("Leave not found")));
+        .orElseThrow(() -> new LeaveTypeNotFoundException("Leave not found")));
     }
 
     public LeaveTypeResponseDto createLeaveType(LeaveTypeRequestDto request){
         LeaveType leaveType = leaveTypeMapper.toEntity(request);
-        leaveType.setName(request.getName());
-        leaveType.setDescription(request.getDescription());
-        leaveType.setAnnualAllocation(request.getAnnualAllocation());
-        leaveType.setCarryForwardAllowed(request.getCarryForwardAllowed());
-        leaveType.setMaxCarryForwardDays(request.getMaxCarryForwardDays());
+        leaveType.setActive(true);
         LeaveType savedLeaveType = leaveTypeRepository.save(leaveType);
 
         return leaveTypeMapper.toResponseDto(savedLeaveType);
     }
 
     public LeaveTypeResponseDto updateLeaveType(Long id, LeaveTypeRequestDto request){
-        LeaveType leaveType = leaveTypeMapper.toEntity(request);
-        leaveType.setName(request.getName());
-        leaveType.setDescription(request.getDescription());
-        leaveType.setAnnualAllocation(request.getAnnualAllocation());
-        leaveType.setCarryForwardAllowed(request.getCarryForwardAllowed());
-        leaveType.setMaxCarryForwardDays(request.getMaxCarryForwardDays());
+        LeaveType existingLeaveType = leaveTypeRepository.findById(id).
+            orElseThrow(() -> new LeaveTypeNotFoundException("LeaveType not found"));
+        existingLeaveType.setName(request.getName());
+        existingLeaveType.setDescription(request.getDescription());
+        existingLeaveType.setAnnualAllocation(request.getAnnualAllocation());
+        existingLeaveType.setCarryForwardAllowed(request.getCarryForwardAllowed());
+        existingLeaveType.setMaxCarryForwardDays(request.getMaxCarryForwardDays());
 
-        LeaveType savedLeaveType = leaveTypeRepository.save(leaveType);
+        LeaveType savedLeaveType = leaveTypeRepository.save(existingLeaveType);
         return leaveTypeMapper.toResponseDto(savedLeaveType);
     }
 

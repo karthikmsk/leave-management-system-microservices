@@ -36,11 +36,14 @@ public class LeaveResponseDto {
     @NotNull
     private LeaveStatus leaveStatus;
 
-    @NotBlank
+    private LocalDateTime appliedAt;
+
     private String managerComment;
 
-    private Long approverId;
+    private Long reviewerId;
+    
+    private String reviewerName;
 
-    private LocalDateTime appliedAt;
+    private LocalDateTime reviewedAt;
 
 }

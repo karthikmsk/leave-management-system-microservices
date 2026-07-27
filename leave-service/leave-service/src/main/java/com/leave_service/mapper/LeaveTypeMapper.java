@@ -10,6 +10,12 @@ import com.leave_service.model.LeaveType;
 @Mapper(componentModel = "spring")
 public interface LeaveTypeMapper {
 
+    @Mapping(target = "name", ignore = true)
+    @Mapping(target = "description", ignore = true)
+    @Mapping(target = "annualAllocation", ignore = true)
+    @Mapping(target = "carryForwardAllowed", ignore = true)
+    @Mapping(target = "maxCarryForwardDays", ignore = true)
+    @Mapping(target = "active",ignore = true)
     LeaveTypeResponseDto toResponseDto (LeaveType leaveType);
 
     @Mapping(target = "id", ignore = true)

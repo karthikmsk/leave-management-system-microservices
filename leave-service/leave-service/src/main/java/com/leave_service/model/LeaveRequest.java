@@ -10,6 +10,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.Data;
 
@@ -47,7 +49,24 @@ public class LeaveRequest {
     private String managerComment;
 
     private LocalDateTime appliedAt;
+    
+    private LocalDateTime updatedAt;
 
-    private Long approverId;
+    private Long reviewerId;
+    
+    private String reviewerName;
+
+    private LocalDateTime reviewedAt;
+
+    @PrePersist
+    public void prePersist(){
+        this.appliedAt = LocalDateTime.now();
+        this.leaveStatus = LeaveStatus.PENDING;
+    }
+
+    @PreUpdate
+    public void preUpdate(){
+        this.updatedAt = LocalDateTime.now();
+    }
 
 }

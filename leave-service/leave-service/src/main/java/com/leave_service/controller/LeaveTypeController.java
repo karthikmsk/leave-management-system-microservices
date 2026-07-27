@@ -39,22 +39,23 @@ public class LeaveTypeController {
     }
 
     @PostMapping()
-    public ResponseEntity<LeaveTypeResponseDto> addLeaveType(@RequestBody LeaveTypeRequestDto request){
+    public ResponseEntity<LeaveTypeResponseDto> createLeaveType(@Valid @RequestBody LeaveTypeRequestDto request){
         return ResponseEntity.ok(leaveTypeService.createLeaveType(request));
     }
 
     @PutMapping("/update/{id}")
-    public ResponseEntity<LeaveTypeResponseDto> updateLeaveType(@Valid @PathVariable Long id,LeaveTypeRequestDto requestDto){
+    public ResponseEntity<LeaveTypeResponseDto> updateLeaveType(@PathVariable Long id,
+        @Valid @RequestBody LeaveTypeRequestDto requestDto){
         return ResponseEntity.ok(leaveTypeService.updateLeaveType(id, requestDto));
     }
 
     @PatchMapping("/{id}/activate")
-    public ResponseEntity<LeaveTypeResponseDto> actiateLeaveType(@PathVariable Long id){
+    public ResponseEntity<LeaveTypeResponseDto> activateLeaveType(@PathVariable Long id){
         return ResponseEntity.ok(leaveTypeService.activateLeaveType(id));
     }
 
     @PatchMapping("/{id}/deactivate")
-    public ResponseEntity<LeaveTypeResponseDto> deActiateLeaveType(@PathVariable Long id){
+    public ResponseEntity<LeaveTypeResponseDto> deActivateLeaveType(@PathVariable Long id){
         return ResponseEntity.ok(leaveTypeService.deActivateLeaveType(id));
     }
 

@@ -15,7 +15,7 @@ public interface LeaveTypeMapper {
     @Mapping(target = "annualAllocation", ignore = true)
     @Mapping(target = "carryForwardAllowed", ignore = true)
     @Mapping(target = "maxCarryForwardDays", ignore = true)
-    @Mapping(target = "active",ignore = true)
+    @Mapping(target = "isActive",ignore = true)
     LeaveTypeResponseDto toResponseDto (LeaveType leaveType);
 
     @Mapping(target = "id", ignore = true)

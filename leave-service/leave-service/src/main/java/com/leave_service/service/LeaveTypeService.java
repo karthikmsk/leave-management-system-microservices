@@ -2,6 +2,7 @@ package com.leave_service.service;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,16 +35,19 @@ public class LeaveTypeService {
         return mapToResponse(updatedLeaveType);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYEE','MAANGER')")
     public Page<LeaveTypeResponseDto> getAllLeaveTypes(Pageable pageable) {
         return leaveTypeRepository.findAll(pageable).map(leaveTypeMapper::toResponseDto);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYEE','MAANGER')")
     public LeaveTypeResponseDto getLeaveTypeById(Long id) {
         return mapToResponse(leaveTypeRepository.findById(id)
                 .orElseThrow(() -> new LeaveTypeNotFoundException("Leave not found")));
     }
 
     @Transactional
+    @PreAuthorize("hasAnyRole('ADMIN')")
     public LeaveTypeResponseDto createLeaveType(LeaveTypeRequestDto request) {
         if (leaveTypeRepository.existsByName(request.getName())) {
             throw new DuplicateLeaveTypeException("Leave type already exists");
@@ -56,6 +60,7 @@ public class LeaveTypeService {
     }
 
     @Transactional
+    @PreAuthorize("hasAnyRole('ADMIN')")
     public LeaveTypeResponseDto updateLeaveType(Long id, LeaveTypeRequestDto request) {
         LeaveType existingLeaveType = leaveTypeRepository.findById(id)
                 .orElseThrow(() -> new LeaveTypeNotFoundException("LeaveType not found"));
@@ -77,11 +82,13 @@ public class LeaveTypeService {
     }
 
     @Transactional
+    @PreAuthorize("hasAnyRole('ADMIN')")
     public LeaveTypeResponseDto activateLeaveType(Long id) {
         return updateLeaveTypeStatus(id, true);
     }
 
     @Transactional
+    @PreAuthorize("hasAnyRole('ADMIN')")
     public LeaveTypeResponseDto deActivateLeaveType(Long id) {
         return updateLeaveTypeStatus(id, false);
     }

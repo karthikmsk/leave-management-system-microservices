@@ -2,6 +2,10 @@ package com.leave_service.service;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +21,8 @@ import com.leave_service.model.LeaveBalance;
 import com.leave_service.model.LeaveType;
 import com.leave_service.repository.LeaveBalanceRepository;
 import com.leave_service.repository.LeaveTypeRepository;
+import com.leave_service.security.CustomUserDetails;
+
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -39,6 +45,11 @@ public class LeaveBalanceService {
         return balanceDto;
     }
 
+    private CustomUserDetails getLoggedInUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return (CustomUserDetails) authentication.getPrincipal();
+    }
+    
     public LeaveBalanceDto getLeaveBalance(Long employeeId, Long leaveTypeId) {
         LeaveBalance leaveBalance = leaveBalanceRepository.findByEmployeeIdAndLeaveTypeId(employeeId, leaveTypeId)
                 .orElseThrow(() -> new LeaveBalanceNotFoundException("No Balance found"));
@@ -47,6 +58,13 @@ public class LeaveBalanceService {
         return mapToResponse(leaveBalance, employee);
     }
 
+    @PreAuthorize("hasAnyRole('EMPLOYEE')")
+    public List<LeaveBalanceDto> getMyLeaveBalances(){
+         CustomUserDetails loggedInUser = getLoggedInUser();
+         return getEmployeeLeaveBalances(loggedInUser.getEmployeeId());
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','HR')")
     public List<LeaveBalanceDto> getEmployeeLeaveBalances(Long employeeId) {
         List<LeaveBalance> leaveBalances = leaveBalanceRepository.findByEmployeeId(employeeId);
         UserResponse employee = userClient.getUserByEmployeeId(employeeId);
@@ -96,7 +114,7 @@ public class LeaveBalanceService {
         leaveBalance.setUsedDays(leaveBalance.getUsedDays() + requestedDays);
 
     }
-    
+
     @Transactional
     public void restoreLeaveBalance(Long employeeId, Long leaveTypeId, Float requestedDays) {
         LeaveBalance leaveBalance = leaveBalanceRepository.findByEmployeeIdAndLeaveTypeId(employeeId, leaveTypeId)

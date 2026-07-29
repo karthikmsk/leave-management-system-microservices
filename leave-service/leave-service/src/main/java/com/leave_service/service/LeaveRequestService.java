@@ -28,10 +28,8 @@ import com.leave_service.model.LeaveRequest;
 import com.leave_service.model.LeaveStatus;
 import com.leave_service.repository.LeaveRequestRepository;
 import com.leave_service.security.CustomUserDetails;
-
 import lombok.RequiredArgsConstructor;
 
-// LeaveService.java
 @Service
 @RequiredArgsConstructor
 public class LeaveRequestService {
@@ -50,6 +48,9 @@ public class LeaveRequestService {
     }
 
     private void validateDates(LeaveRequest leaveRequest) {
+        if (leaveRequest.getStartDate().isBefore(LocalDate.now())) {
+            throw new DateValidationException("Leave cannot be applied for past dates");
+        }
         if (leaveRequest.getStartDate().isAfter(leaveRequest.getEndDate())) {
             throw new DateValidationException("Start date must be less than or equal to end date");
         }
@@ -110,11 +111,13 @@ public class LeaveRequestService {
         return result;
     }
 
+    @PreAuthorize("hasAnyRole('EMPLOYEE','MANAGER','HR','ADMIN')")
     public LeaveResponseDto getLeaveById(Long leaveId) {
         return mapToResponse(leaveRepository.findById(leaveId)
                 .orElseThrow(() -> new LeaveNotFoundException("Leave not found")));
     }
 
+    @PreAuthorize("hasAnyRole('EMPLOYEE','MANAGER','HR','ADMIN')")
     public List<LeaveResponseDto> getMyLeaves() {
         CustomUserDetails loggedInUser = getLoggedInUser();
 
@@ -153,15 +156,16 @@ public class LeaveRequestService {
 
     @PreAuthorize("hasAnyRole('MANAGER')")
     public List<LeaveResponseDto> getApprovedLeaves() {
-        return getTeamLeavesByStatus(LeaveStatus.PENDING);
+        return getTeamLeavesByStatus(LeaveStatus.APPROVED);
     }
 
     @PreAuthorize("hasAnyRole('MANAGER')")
     public List<LeaveResponseDto> getRejectedLeaves() {
-        return getTeamLeavesByStatus(LeaveStatus.PENDING);
+        return getTeamLeavesByStatus(LeaveStatus.REJECTED);
     }
 
     @Transactional
+    @PreAuthorize("hasAnyRole('EMPLOYEE','MANAGER','HR','ADMIN')")
     public LeaveResponseDto applyLeave(LeaveRequestDto leaveRequest) {
         CustomUserDetails loggedInUser = getLoggedInUser();
         UserResponse employee = userClient.getUserByEmployeeId(loggedInUser.getEmployeeId());
@@ -169,12 +173,9 @@ public class LeaveRequestService {
         LeaveRequest leave = leaveMapper.toLeaveRequest(leaveRequest);
         leave.setEmployeeId(employee.getEmployeeId());
         leave.setLeaveTypeId(leaveRequest.getLeaveTypeId());
-        leave.setStartDate(leaveRequest.getStartDate());
-        leave.setEndDate(leaveRequest.getEndDate());
         validateDates(leave);
         leave.setNumberOfDays(calculateLeaveDays(leave.getStartDate(), leave.getEndDate()));
         leaveBalanceService.getLeaveBalance(employee.getEmployeeId(), leave.getLeaveTypeId());
-        leave.setReason(leaveRequest.getReason());
 
         LeaveRequest savedRequest = leaveRepository.save(leave);
         return leaveMapper.toLeaveResponseDto(savedRequest);
@@ -182,6 +183,7 @@ public class LeaveRequestService {
     }
 
     @Transactional
+    @PreAuthorize("hasAnyRole('MANAGER')")
     public LeaveResponseDto approveLeave(Long leaveId, ApproveLeaveRequestDto leaveRequestDto) {
 
         LeaveRequest leave = validateManagerAction(leaveId, leaveRequestDto);
@@ -204,6 +206,7 @@ public class LeaveRequestService {
     }
 
     @Transactional
+    @PreAuthorize("hasAnyRole('MANAGER')")
     public LeaveResponseDto rejectLeave(Long leaveId, ApproveLeaveRequestDto leaveRequestDto) {
         LeaveRequest leave = validateManagerAction(leaveId, leaveRequestDto);
 
@@ -216,6 +219,7 @@ public class LeaveRequestService {
     }
 
     @Transactional
+    @PreAuthorize("hasAnyRole('EMPLOYEE','MANAGER','HR','ADMIN')")
     public LeaveResponseDto cancelLeave(Long leaveId) {
         CustomUserDetails loggedInUser = getLoggedInUser();
         UserResponse employee = userClient.getUserByEmployeeId(loggedInUser.getEmployeeId());

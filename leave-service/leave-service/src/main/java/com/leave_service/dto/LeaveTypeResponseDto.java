@@ -6,6 +6,10 @@ import lombok.Data;
 
 @Data
 public class LeaveTypeResponseDto {
+
+    @NotNull
+    private Long id;
+
     @NotBlank
     private String name;
 

@@ -13,7 +13,7 @@ public interface UserMapper {
     
     UserResponse toUserResponse(User user);
 
-    List<UserResponse> toUserResponses(List<User> users);
+    List<UserResponse> toUserResponses(List<UserResponse> users);
 
     @Mapping(target = "id", ignore = true)
     User toUser(UserRequest userRequest);

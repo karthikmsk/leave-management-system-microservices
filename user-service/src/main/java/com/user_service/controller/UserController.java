@@ -1,5 +1,7 @@
 package com.user_service.controller;
 
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -9,6 +11,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -25,18 +28,24 @@ import com.user_service.model.Department;
 import com.user_service.model.Role;
 import com.user_service.model.UserStatus;
 import com.user_service.service.UserService;
-
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api/users")
 public class UserController {
 
     private final UserService userService;
 
-    public UserController(UserService userService) {
-        this.userService = userService;
-    }
+   @GetMapping("/all")
+public ResponseEntity<List<UserResponse>> getAllUsersForSync(
+        @RequestHeader(value = "Authorization", required = false) String authHeader) {
+
+    System.out.println("Authorization Header = " + authHeader);
+
+    return ResponseEntity.ok(userService.getAllUsersforSync());
+}
 
     @GetMapping("/{userId}")
     public ResponseEntity<UserResponse> getUserById(@PathVariable Long userId) {
@@ -73,10 +82,16 @@ public class UserController {
         return ResponseEntity.ok(userService.getUsersByStatus(status, pageable));
     }
 
-    @GetMapping("/manager/{managerId}")
+    @GetMapping("/team/{managerId}")
     public ResponseEntity<Page<UserResponse>> getTeamMembers(@PathVariable Long managerId,
             @PageableDefault(size = 10, sort = "employeeId") Pageable pageable) {
+                System.out.println("Reached getTeamMembers controller");
         return ResponseEntity.ok(userService.getTeamMembers(managerId, pageable));
+    }
+
+    @GetMapping("/team-list/{managerId}")
+    public ResponseEntity<List<UserResponse>> getTeamMembersForLeaveService(@PathVariable Long managerId){
+       return ResponseEntity.ok(userService.getTeamMembersForLeaveService(managerId));
     }
 
     @GetMapping("/role/{role}")

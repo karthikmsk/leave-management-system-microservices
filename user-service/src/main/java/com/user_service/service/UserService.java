@@ -2,6 +2,9 @@ package com.user_service.service;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.data.domain.Pageable;
+
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -80,6 +83,10 @@ public class UserService {
         return userRepository.findAll(pageable).map(userMapper::toUserResponse);
     }
 
+    public List<UserResponse> getAllUsersforSync() {
+        return userRepository.findAll().stream().map(userMapper::toUserResponse).toList();
+    }
+
     @PreAuthorize("hasAnyRole('ADMIN')")
     public UserResponse getUserById(Long userId) {
         return mapToResponse(userRepository.findById(userId)
@@ -99,7 +106,7 @@ public class UserService {
 
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN','HR') || #employeeId == authentication.principal.employeeId")
+    @PreAuthorize("hasAnyRole('ADMIN','HR','MANAGER') || #employeeId == authentication.principal.employeeId")
     public UserResponse getUserByEmployeeId(Long employeeId) {
         return mapToResponse(userRepository.findByEmployeeId(employeeId)
                 .orElseThrow(() -> new UserNotFoundException("User not found")));
@@ -123,6 +130,16 @@ public class UserService {
     @PreAuthorize("hasAnyRole('ADMIN','HR','MANAGER','EMPLOYEE','EXTERNAL')")
     public Page<UserResponse> getTeamMembers(Long managerId, Pageable pageable) {
         return userRepository.findByManagerId(managerId, pageable).map(userMapper::toUserResponse);
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN','HR','MANAGER','EMPLOYEE','EXTERNAL')")
+    public List<UserResponse> getTeamMembersForLeaveService(Long managerId) {
+System.out.println("Hello");
+        return userRepository.findByManagerId(managerId)
+                .stream()
+                .map(userMapper::toUserResponse)
+                .toList();
+
     }
 
     @Transactional

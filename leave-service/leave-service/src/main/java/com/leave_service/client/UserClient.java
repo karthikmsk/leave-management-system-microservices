@@ -5,19 +5,25 @@ import java.util.List;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import com.leave_service.dto.UserResponse;
 
-@FeignClient(name = "user-service")  
+@FeignClient(name = "lms-user-service",
+    configuration = FeignConfig.class
+)  
 public interface UserClient {
 
     @GetMapping("/api/users/employee/{employeeId}")
     UserResponse getUserByEmployeeId(@PathVariable Long employeeId);
 
-    @GetMapping("/api/users/team/{managerId}")
+    @GetMapping("/api/users/team-list/{managerId}")
     List<UserResponse> getTeamMembers(@PathVariable Long managerId);
 
-    @GetMapping("/api/users/email/{email}")
-    UserResponse getUserByEmail(@PathVariable String email);
+    @GetMapping("/api/users/email")
+    UserResponse getUserByEmail(@RequestParam String email);
+
+    @GetMapping("/api/users/all")
+    List<UserResponse> getAllUsers();
 
 }

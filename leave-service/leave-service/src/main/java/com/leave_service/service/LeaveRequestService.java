@@ -4,29 +4,37 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import com.leave_service.client.UserClient;
 import com.leave_service.dto.ApproveLeaveRequestDto;
 import com.leave_service.dto.LeaveRequestDto;
 import com.leave_service.dto.LeaveResponseDto;
 import com.leave_service.dto.UserResponse;
 import com.leave_service.exception.ValidManagerException;
+import com.leave_service.kafka.event.LeaveEvent;
+import com.leave_service.kafka.event.LeaveEventType;
+import com.leave_service.kafka.producer.LeaveEventProducer;
 import com.leave_service.mapper.LeaveRequestMapper;
 import com.leave_service.exception.ApprovedOrRejectedLeaveException;
 import com.leave_service.exception.DateValidationException;
 import com.leave_service.exception.LeaveCancelException;
 import com.leave_service.exception.LeaveNotFoundException;
+import com.leave_service.exception.LeaveTypeNotFoundException;
 import com.leave_service.exception.UnauthorizedLeaveAccessException;
 import com.leave_service.model.LeaveRequest;
 import com.leave_service.model.LeaveStatus;
+import com.leave_service.model.LeaveType;
 import com.leave_service.repository.LeaveRequestRepository;
+import com.leave_service.repository.LeaveTypeRepository;
 import com.leave_service.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 
@@ -35,9 +43,11 @@ import lombok.RequiredArgsConstructor;
 public class LeaveRequestService {
     private final UserClient userClient;
     private final LeaveRequestRepository leaveRepository;
+    private final LeaveTypeRepository leaveTypeRepository;
     private final LeaveRequestMapper leaveMapper;
     private final LeaveBalanceService leaveBalanceService;
-
+    private final LeaveEventProducer leaveEventProducer;
+    
     private Float calculateLeaveDays(LocalDate startDate, LocalDate endDate) {
         return (float) ChronoUnit.DAYS.between(startDate, endDate) + 1;
     }
@@ -56,12 +66,38 @@ public class LeaveRequestService {
         }
     }
 
+    private LeaveEvent buildLeaveEvent(LeaveRequest leaveRequest, UserResponse employee,
+            LeaveType leaveType, LeaveEventType eventType) {
+
+        LeaveEvent event = new LeaveEvent();
+
+        event.setEmployeeId(employee.getEmployeeId());
+        event.setEmployeeName(employee.getName());
+        event.setLeaveRequestId(leaveRequest.getId());
+        event.setLeaveType(leaveType.getName());
+        event.setStartDate(leaveRequest.getStartDate());
+        event.setEndDate(leaveRequest.getEndDate());
+        event.setStatus(leaveRequest.getLeaveStatus().name());
+        event.setEventType(eventType);
+
+        return event;
+    }
+
     private LeaveResponseDto mapToResponse(LeaveRequest leave) {
         return leaveMapper.toLeaveResponseDto(leave);
     }
 
-    private LeaveResponseDto mapToResponse(LeaveRequest leaveRequest, UserResponse employee) {
-        return leaveMapper.toLeaveResponseDto(leaveRequest, employee);
+    private LeaveResponseDto mapToResponse(LeaveRequest leave, UserResponse employee) {
+        LeaveResponseDto dto = leaveMapper.toLeaveResponseDto(leave);
+
+        dto.setEmployeeName(employee.getName());
+
+        LeaveType leaveType = leaveTypeRepository.findById(leave.getLeaveTypeId())
+                .orElseThrow(() -> new LeaveTypeNotFoundException("Leave type not found"));
+
+        dto.setLeaveType(leaveType.getName());
+
+        return dto;
     }
 
     private LeaveRequest validateManagerAction(Long leaveId, ApproveLeaveRequestDto leaveRequestDto) {
@@ -73,11 +109,12 @@ public class LeaveRequestService {
         if (leave.getLeaveStatus() != LeaveStatus.PENDING) {
             throw new ApprovedOrRejectedLeaveException("Approved or Rejected leaves can not reapproved or accepted");
         }
-
+        System.out.println("Manager Id : " + loggedInUser.getEmployeeId());
         UserResponse loggedInManager = userClient.getUserByEmployeeId(loggedInUser.getEmployeeId());
-
+        System.out.println("Logged In Manager : " + loggedInManager.getEmployeeId());
         UserResponse requestingEmployee = userClient.getUserByEmployeeId(leave.getEmployeeId());
-
+        System.out.println("Employee : " + requestingEmployee.getEmployeeId());
+        System.out.println("Employee Manager : " + requestingEmployee.getManagerId());
         if (!(loggedInManager.getEmployeeId()).equals(requestingEmployee.getManagerId())) {
             throw new ValidManagerException("You are not a manager of this employee");
 
@@ -111,6 +148,17 @@ public class LeaveRequestService {
         return result;
     }
 
+    private LeaveResponseDto toResponse(LeaveRequest leaveRequest) {
+        LeaveResponseDto dto = leaveMapper.toLeaveResponseDto(leaveRequest);
+        UserResponse employee = userClient.getUserByEmployeeId(leaveRequest.getEmployeeId());
+        LeaveType leaveType = leaveTypeRepository.findById(leaveRequest.getLeaveTypeId())
+                .orElseThrow(() -> new LeaveTypeNotFoundException("Leave type not found"));
+        dto.setEmployeeName(employee.getName());
+        dto.setLeaveType(leaveType.getName());
+
+        return dto;
+    }
+
     @PreAuthorize("hasAnyRole('EMPLOYEE','MANAGER','HR','ADMIN')")
     public LeaveResponseDto getLeaveById(Long leaveId) {
         return mapToResponse(leaveRepository.findById(leaveId)
@@ -126,27 +174,51 @@ public class LeaveRequestService {
         List<LeaveResponseDto> result = new ArrayList<>();
         for (LeaveRequest leave : leaves) {
             LeaveResponseDto dto = mapToResponse(leave, employee);
+            dto.setEmployeeName(employee.getName());
+            LeaveType leaveType = leaveTypeRepository.findById(leave.getLeaveTypeId())
+                    .orElseThrow(() -> new LeaveTypeNotFoundException("Leave type not found"));
+            dto.setLeaveType(leaveType.getName());
+
             result.add(dto);
         }
         return result;
     }
 
-    @PreAuthorize("hasAnyRole('MANAGER')")
+    @PreAuthorize("hasRole('MANAGER')")
     public List<LeaveResponseDto> getTeamLeaves() {
+
         CustomUserDetails loggedInUser = getLoggedInUser();
 
-        UserResponse loggedInManager = userClient.getUserByEmployeeId(loggedInUser.getEmployeeId());
-        List<UserResponse> employees = userClient.getTeamMembers(loggedInManager.getEmployeeId());
+        List<UserResponse> employees = userClient.getTeamMembers(loggedInUser.getEmployeeId());
 
-        List<LeaveResponseDto> result = new ArrayList<>();
-        for (UserResponse employee : employees) {
-            List<LeaveRequest> leaves = leaveRepository.findByEmployeeId(employee.getEmployeeId());
-            for (LeaveRequest leave : leaves) {
-                LeaveResponseDto dto = mapToResponse(leave, employee);
-                result.add(dto);
-            }
+        if (employees.isEmpty()) {
+            return Collections.emptyList();
         }
-        return result;
+
+        List<Long> employeeIds = employees.stream()
+                .map(UserResponse::getEmployeeId)
+                .toList();
+
+        Map<Long, UserResponse> employeeMap = employees.stream()
+                .collect(Collectors.toMap(
+                        UserResponse::getEmployeeId,
+                        Function.identity()));
+
+        List<LeaveRequest> leaves = leaveRepository.findByEmployeeIdIn(employeeIds);
+        Map<Long, String> leaveTypeMap = leaveTypeRepository.findAll()
+                .stream()
+                .collect(Collectors.toMap(
+                        LeaveType::getId,
+                        LeaveType::getName));
+
+        return leaves.stream()
+                .map(leave -> {
+                    LeaveResponseDto dto = mapToResponse(leave, employeeMap.get(leave.getEmployeeId()));
+                    dto.setLeaveType(leaveTypeMap.get(leave.getLeaveTypeId()));
+                    return dto;
+                }
+
+                ).toList();
     }
 
     @PreAuthorize("hasAnyRole('MANAGER')")
@@ -171,14 +243,22 @@ public class LeaveRequestService {
         UserResponse employee = userClient.getUserByEmployeeId(loggedInUser.getEmployeeId());
 
         LeaveRequest leave = leaveMapper.toLeaveRequest(leaveRequest);
+
         leave.setEmployeeId(employee.getEmployeeId());
         leave.setLeaveTypeId(leaveRequest.getLeaveTypeId());
         validateDates(leave);
         leave.setNumberOfDays(calculateLeaveDays(leave.getStartDate(), leave.getEndDate()));
-        leaveBalanceService.getLeaveBalance(employee.getEmployeeId(), leave.getLeaveTypeId());
-
+        leaveBalanceService.validateLeaveBalance(employee.getEmployeeId(), leave.getLeaveTypeId(),
+                leave.getNumberOfDays());
         LeaveRequest savedRequest = leaveRepository.save(leave);
-        return leaveMapper.toLeaveResponseDto(savedRequest);
+
+        LeaveType leaveType = leaveTypeRepository.findById(savedRequest.getLeaveTypeId())
+                .orElseThrow(() -> new LeaveTypeNotFoundException("Leave type not found"));
+
+        LeaveEvent event = buildLeaveEvent(savedRequest, employee, leaveType, LeaveEventType.LEAVE_APPLIED);
+        leaveEventProducer.publishLeaveEvent(event);
+
+        return toResponse(savedRequest);
 
     }
 
@@ -189,18 +269,27 @@ public class LeaveRequestService {
         LeaveRequest leave = validateManagerAction(leaveId, leaveRequestDto);
 
         UserResponse requestingEmployee = userClient.getUserByEmployeeId(leave.getEmployeeId());
+        System.out.println("Approve -> Employee : " + requestingEmployee.getEmployeeId());
 
         leaveBalanceService.validateLeaveBalance(requestingEmployee.getEmployeeId(),
                 leave.getLeaveTypeId(),
                 leave.getNumberOfDays());
-
+        System.out.println("Leave balance validated");
         leaveBalanceService.deductLeaveBalance(requestingEmployee.getEmployeeId(),
                 leave.getLeaveTypeId(),
                 leave.getNumberOfDays());
+        System.out.println("Leave balance deducted");
         leave.setLeaveStatus(LeaveStatus.APPROVED);
 
         leave.setReviewedAt(LocalDateTime.now());
         LeaveRequest savedLeave = leaveRepository.save(leave);
+
+        LeaveType leaveType = leaveTypeRepository.findById(savedLeave.getLeaveTypeId())
+                .orElseThrow(() -> new LeaveTypeNotFoundException("Leave type not found"));
+
+        LeaveEvent event = buildLeaveEvent(leave, requestingEmployee, leaveType, LeaveEventType.LEAVE_APPROVED);
+        leaveEventProducer.publishLeaveEvent(event);
+
         return leaveMapper.toLeaveResponseDto(savedLeave);
 
     }
@@ -208,12 +297,20 @@ public class LeaveRequestService {
     @Transactional
     @PreAuthorize("hasAnyRole('MANAGER')")
     public LeaveResponseDto rejectLeave(Long leaveId, ApproveLeaveRequestDto leaveRequestDto) {
-        LeaveRequest leave = validateManagerAction(leaveId, leaveRequestDto);
 
+        LeaveRequest leave = validateManagerAction(leaveId, leaveRequestDto);
+        UserResponse requestingEmployee = userClient.getUserByEmployeeId(leave.getEmployeeId());
         leave.setLeaveStatus(LeaveStatus.REJECTED);
 
         leave.setReviewedAt(LocalDateTime.now());
         LeaveRequest savedLeave = leaveRepository.save(leave);
+
+        LeaveType leaveType = leaveTypeRepository.findById(savedLeave.getLeaveTypeId())
+                .orElseThrow(() -> new LeaveTypeNotFoundException("Leave type not found"));
+
+        LeaveEvent event = buildLeaveEvent(leave, requestingEmployee, leaveType, LeaveEventType.LEAVE_REJECTED);
+        leaveEventProducer.publishLeaveEvent(event);
+
         return leaveMapper.toLeaveResponseDto(savedLeave);
 
     }
@@ -244,6 +341,14 @@ public class LeaveRequestService {
         leave.setLeaveStatus(LeaveStatus.CANCELLED);
         leave.setUpdatedAt(LocalDateTime.now());
         LeaveRequest savedLeave = leaveRepository.save(leave);
+
+        LeaveType leaveType = leaveTypeRepository.findById(savedLeave.getLeaveTypeId())
+                .orElseThrow(() -> new LeaveTypeNotFoundException("Leave type not found"));
+
+        LeaveEvent event = buildLeaveEvent(leave, employee, leaveType, LeaveEventType.LEAVE_CANCELED);
+        leaveEventProducer.publishLeaveEvent(event);
+
         return leaveMapper.toLeaveResponseDto(savedLeave);
     }
+
 }

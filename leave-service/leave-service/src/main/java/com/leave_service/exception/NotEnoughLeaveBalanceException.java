@@ -1,8 +1,6 @@
 package com.leave_service.exception;
 
-import jakarta.ws.rs.BadRequestException;
-
-public class NotEnoughLeaveBalanceException extends BadRequestException{
+public class NotEnoughLeaveBalanceException extends RuntimeException{
     public NotEnoughLeaveBalanceException(String message){
         super(message);
     }

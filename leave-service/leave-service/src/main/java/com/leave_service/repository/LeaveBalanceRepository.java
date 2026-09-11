@@ -17,4 +17,6 @@ public interface LeaveBalanceRepository extends JpaRepository<LeaveBalance,Long>
 
     Float findUsedDaysByEmployeeId(Long employeeId);
 
+    boolean existsByEmployeeIdAndLeaveTypeId(Long employeeId, Long id);
+
 }

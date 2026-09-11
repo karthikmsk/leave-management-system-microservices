@@ -4,6 +4,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -58,5 +60,13 @@ public class LeaveTypeController {
     public ResponseEntity<LeaveTypeResponseDto> deActivateLeaveType(@PathVariable Long id){
         return ResponseEntity.ok(leaveTypeService.deActivateLeaveType(id));
     }
+@GetMapping("/debug")
+public String debug() {
+    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
+    System.out.println(auth);
+    System.out.println(auth.getAuthorities());
+
+    return auth.toString();
+}
 }

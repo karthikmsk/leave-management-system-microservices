@@ -24,5 +24,5 @@ public class LeaveTypeResponseDto {
     private Float maxCarryForwardDays;
 
     @NotNull
-    private Boolean isActive;
+    private boolean isActive;
 }

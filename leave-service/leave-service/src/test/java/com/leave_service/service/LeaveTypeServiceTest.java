@@ -65,7 +65,7 @@ public class LeaveTypeServiceTest {
         dto.setAnnualAllocation(20F);
         dto.setCarryForwardAllowed(true);
         dto.setMaxCarryForwardDays(10F);
-        dto.setIsActive(true);
+        dto.setActive(true);
         return dto;
     }
 
@@ -84,7 +84,7 @@ public class LeaveTypeServiceTest {
         assertEquals(20F, result.getAnnualAllocation());
         assertTrue(result.getCarryForwardAllowed());
         assertEquals(10F, result.getMaxCarryForwardDays());
-        assertTrue(result.getIsActive());
+        assertTrue(result.isActive());
         verify(leaveTypeRepository, times(1)).findById(1L);
         verify(leaveTypeMapper, times(1)).toResponseDto(leaveType);
     }
@@ -95,7 +95,7 @@ public class LeaveTypeServiceTest {
 
         LeaveTypeNotFoundException exception = assertThrows(LeaveTypeNotFoundException.class,
                 () -> leaveTypeService.getLeaveTypeById(1L));
-        assertEquals("Leave not found", exception.getMessage());
+        assertEquals("Leave type not found", exception.getMessage());
         verify(leaveTypeRepository, times(1)).findById(1L);
         verifyNoInteractions(leaveTypeMapper);
     }
@@ -117,7 +117,7 @@ public class LeaveTypeServiceTest {
         assertEquals(20F, result.getAnnualAllocation());
         assertTrue(result.getCarryForwardAllowed());
         assertEquals(10F, result.getMaxCarryForwardDays());
-        assertTrue(result.getIsActive());
+        assertTrue(result.isActive());
 
         verify(leaveTypeRepository).existsByName(requestDto.getName());
         verify(leaveTypeMapper).toEntity(requestDto);
@@ -163,12 +163,72 @@ public class LeaveTypeServiceTest {
     }
 
     @Test
+    void updateLeaveType_ShouldThrowLeaveTypeNotFoundException_WhenIdDoesNotExist() {
+        LeaveTypeRequestDto request = createRequestDto();
+        when(leaveTypeRepository.findById(1L)).thenReturn(Optional.empty());
+
+        LeaveTypeNotFoundException exception = assertThrows(LeaveTypeNotFoundException.class,
+                () -> leaveTypeService.updateLeaveType(1L,request));
+        assertEquals("Leave type not found", exception.getMessage());
+        verify(leaveTypeRepository, times(1)).findById(1L);
+        verifyNoInteractions(leaveTypeMapper);
+    }
+
+    @Test
+    void updateLeaveType_ShouldThrowException_WhenCarryForwardDaysIsNegative() {
+        LeaveType leaveType = createLeaveType();
+        LeaveTypeRequestDto request = createRequestDto();
+
+        request.setCarryForwardAllowed(true);
+        request.setMaxCarryForwardDays(-5F);
+
+        when(leaveTypeRepository.findById(1L)).thenReturn(Optional.of(leaveType));
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+            ()-> leaveTypeService.updateLeaveType(1L, request));
+
+        assertEquals("Max carry forward days cannot be negative.",exception.getMessage());
+        verify(leaveTypeRepository).findById(1L);    
+        verify(leaveTypeRepository, times(0)).save(leaveType);
+        verifyNoInteractions(leaveTypeMapper);    
+    }
+
+    @Test
+    void updateLeaveType_ShouldSetMaxCarryFowrdDaysZero_WhenCarryForwardNotAllowed(){
+        LeaveType leaveType = createLeaveType();
+        LeaveTypeRequestDto request = createRequestDto();
+
+        request.setCarryForwardAllowed(false);
+        request.setMaxCarryForwardDays(10F);
+
+        LeaveTypeResponseDto response  = createResponseDto();
+        response.setCarryForwardAllowed(false);
+        response.setMaxCarryForwardDays(0F);
+
+        when(leaveTypeRepository.findById(1L)).thenReturn(Optional.of(leaveType));
+        when(leaveTypeRepository.save(leaveType)).thenReturn(leaveType);
+        when(leaveTypeMapper.toResponseDto(leaveType)).thenReturn(response);
+
+        LeaveTypeResponseDto result = leaveTypeService.updateLeaveType(1L,request);
+
+        assertNotNull(result);
+        assertFalse(result.getCarryForwardAllowed());
+        assertEquals(0F, leaveType.getMaxCarryForwardDays());
+        assertEquals(0F, result.getMaxCarryForwardDays());
+
+        verify(leaveTypeRepository).findById(1L);    
+        verify(leaveTypeRepository).save(leaveType);
+        verify(leaveTypeMapper).toResponseDto(leaveType); 
+
+    }
+
+    @Test
     void activateLeaveType_ShouldActivateLeaveType() {
         LeaveType leaveType = createLeaveType();
         leaveType.setActive(false);
 
         LeaveTypeResponseDto responseDto = createResponseDto();
-        responseDto.setIsActive(true);
+        responseDto.setActive(true);
 
         when(leaveTypeRepository.findById(1L)).thenReturn(Optional.of(leaveType));
         when(leaveTypeRepository.save(leaveType)).thenReturn(leaveType);
@@ -177,7 +237,7 @@ public class LeaveTypeServiceTest {
         LeaveTypeResponseDto result = leaveTypeService.activateLeaveType(1L);
 
         assertNotNull(result);
-        assertTrue(result.getIsActive());
+        assertTrue(result.isActive());
         assertTrue(leaveType.isActive());
 
         verify(leaveTypeRepository).findById(1L);
@@ -192,7 +252,7 @@ public class LeaveTypeServiceTest {
 
         LeaveTypeNotFoundException exception = assertThrows(LeaveTypeNotFoundException.class,
                 () -> leaveTypeService.activateLeaveType(1L));
-        assertEquals("Leave Type not found", exception.getMessage());
+        assertEquals("Leave type not found", exception.getMessage());
         verify(leaveTypeRepository).findById(1L);
         verifyNoInteractions(leaveTypeMapper);
     }
@@ -203,7 +263,7 @@ public class LeaveTypeServiceTest {
         leaveType.setActive(true);
 
         LeaveTypeResponseDto responseDto = createResponseDto();
-        responseDto.setIsActive(false);
+        responseDto.setActive(false);
 
         when(leaveTypeRepository.findById(1L)).thenReturn(Optional.of(leaveType));
         when(leaveTypeRepository.save(leaveType)).thenReturn(leaveType);
@@ -212,7 +272,7 @@ public class LeaveTypeServiceTest {
         LeaveTypeResponseDto result = leaveTypeService.deActivateLeaveType(1L);
 
         assertNotNull(result);
-        assertFalse(result.getIsActive());
+        assertFalse(result.isActive());
         assertFalse(leaveType.isActive());
 
         verify(leaveTypeRepository).findById(1L);
@@ -227,7 +287,7 @@ public class LeaveTypeServiceTest {
 
         LeaveTypeNotFoundException exception = assertThrows(LeaveTypeNotFoundException.class,
                 () -> leaveTypeService.deActivateLeaveType(1L));
-        assertEquals("Leave Type not found", exception.getMessage());
+        assertEquals("Leave type not found", exception.getMessage());
         verify(leaveTypeRepository).findById(1L);
         verifyNoInteractions(leaveTypeMapper);
     }

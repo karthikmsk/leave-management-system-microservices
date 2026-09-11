@@ -4,6 +4,7 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
 import com.leave_service.dto.LeaveBalanceDto;
+import com.leave_service.dto.MyLeaveBalance;
 import com.leave_service.model.LeaveBalance;
 
 @Mapper(componentModel = "spring")
@@ -13,4 +14,5 @@ public interface LeaveBalanceMapper {
     @Mapping(target = "leaveTypeName", ignore = true)
     LeaveBalanceDto toLeaveBalanceDto(LeaveBalance leaveBalance);
 
+    MyLeaveBalance toBalance(LeaveBalance leaveBalance);
 }

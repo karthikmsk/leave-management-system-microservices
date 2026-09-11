@@ -29,25 +29,25 @@ public class LeaveTypeService {
 
     private LeaveTypeResponseDto updateLeaveTypeStatus(Long id, boolean active) {
         LeaveType existingLeaveType = leaveTypeRepository.findById(id)
-                .orElseThrow(() -> new LeaveTypeNotFoundException("Leave Type not found"));
+                .orElseThrow(() -> new LeaveTypeNotFoundException("Leave type not found"));
         existingLeaveType.setActive(active);
         LeaveType updatedLeaveType = leaveTypeRepository.save(existingLeaveType);
         return mapToResponse(updatedLeaveType);
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYEE','MAANGER')")
+    //@PreAuthorize("hasAnyRole('ADMIN','EMPLOYEE','MANAGER')")
     public Page<LeaveTypeResponseDto> getAllLeaveTypes(Pageable pageable) {
         return leaveTypeRepository.findAll(pageable).map(leaveTypeMapper::toResponseDto);
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN','EMPLOYEE','MAANGER')")
+    //@PreAuthorize("hasAnyRole('ADMIN','EMPLOYEE','MANAGER')")
     public LeaveTypeResponseDto getLeaveTypeById(Long id) {
         return mapToResponse(leaveTypeRepository.findById(id)
-                .orElseThrow(() -> new LeaveTypeNotFoundException("Leave not found")));
+                .orElseThrow(() -> new LeaveTypeNotFoundException("Leave type not found")));
     }
 
     @Transactional
-    @PreAuthorize("hasAnyRole('ADMIN')")
+    //@PreAuthorize("hasAnyRole('ADMIN')")
     public LeaveTypeResponseDto createLeaveType(LeaveTypeRequestDto request) {
         if (leaveTypeRepository.existsByName(request.getName())) {
             throw new DuplicateLeaveTypeException("Leave type already exists");
@@ -63,7 +63,7 @@ public class LeaveTypeService {
     @PreAuthorize("hasAnyRole('ADMIN')")
     public LeaveTypeResponseDto updateLeaveType(Long id, LeaveTypeRequestDto request) {
         LeaveType existingLeaveType = leaveTypeRepository.findById(id)
-                .orElseThrow(() -> new LeaveTypeNotFoundException("LeaveType not found"));
+                .orElseThrow(() -> new LeaveTypeNotFoundException("Leave type not found"));
         existingLeaveType.setName(request.getName());
         existingLeaveType.setDescription(request.getDescription());
         existingLeaveType.setAnnualAllocation(request.getAnnualAllocation());

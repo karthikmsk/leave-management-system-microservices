@@ -29,7 +29,4 @@ public class LeaveBalance {
 
     private Float creditedDays;
 
-    public Object setLeaveTypeId;
-
-
 }

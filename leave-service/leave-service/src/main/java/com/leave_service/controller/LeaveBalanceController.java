@@ -5,10 +5,13 @@ import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.leave_service.dto.LeaveBalanceDto;
+import com.leave_service.dto.MyLeaveBalance;
+import com.leave_service.dto.SyncLeaveBalanceResponseDto;
 import com.leave_service.service.LeaveBalanceService;
 
 import lombok.RequiredArgsConstructor;
@@ -31,9 +34,13 @@ public class LeaveBalanceController {
     }
 
     @GetMapping("/my")
-    public ResponseEntity<List<LeaveBalanceDto>> getMyLeaveBalance(){
+    public ResponseEntity<List<MyLeaveBalance>> getMyLeaveBalance(){
         return ResponseEntity.ok(leaveBalanceService.getMyLeaveBalances());
     }
 
+    @PostMapping("/sync")
+    public ResponseEntity<SyncLeaveBalanceResponseDto> syncLeaveBalances(){
+        return ResponseEntity.ok(leaveBalanceService.syncLeaveBalances());
+    }
 
 }
